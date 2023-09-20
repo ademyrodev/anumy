@@ -1,9 +1,18 @@
 #include "dynarr.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 
-DynArr *dynarr_new(size_t itemsize) {
+static void dynarr_leftshift(DynArr *self, int index) {
+    for (int i = index; i <= self->size - 1; i++) {
+        self->items[i] = self->items[i + 1]; 
+    }
+
+    self->size--;
+}
+
+DynArr *dynarr_new() {
     DynArr *dynarr = malloc(sizeof (*dynarr));    
     if (dynarr == NULL) {
         return NULL; 
@@ -12,7 +21,7 @@ DynArr *dynarr_new(size_t itemsize) {
     dynarr->size = 0;
     dynarr->cap = 4;
 
-    dynarr->items = malloc(dynarr->cap * sizeof (void *));
+    dynarr->items = malloc(dynarr->cap * sizeof (void **));
     if (dynarr->items == NULL) {
         return NULL;
     }
@@ -20,20 +29,19 @@ DynArr *dynarr_new(size_t itemsize) {
     return dynarr;
 }
 
-DynArr *dynarr_withcap(size_t cap, size_t itemsize) {
+DynArr *dynarr_withcap(size_t cap) {
     // yeah this body is somewhat similar to the previous function's body but
     // i don't wanna reallocate dynarr->items after creating it with 
     // dynarr_new()
     DynArr *dynarr = malloc(sizeof (*dynarr));    
     if (dynarr == NULL) {
-        free(dynarr);
         return NULL; 
     }
 
     dynarr->size = 0;
     dynarr->cap = cap;
 
-    dynarr->items = malloc(cap * sizeof (void *));
+    dynarr->items = malloc(cap * sizeof (void **));
     if (dynarr->items == NULL) {
         free(dynarr);
         return NULL;
@@ -42,50 +50,16 @@ DynArr *dynarr_withcap(size_t cap, size_t itemsize) {
     return dynarr;
 }
 
-DynArr *dynarr_fromarray(const void *array, size_t length) {
-    if (array == NULL || length == 0) {
-        return NULL;
+DynArr *dynarr_fromrange(int leftlimit, int rightlimit) {
+    DynArr *dynarr = dynarr_new();
+
+    for (int i = leftlimit; i < rightlimit; i++) {
+        int *item = malloc(sizeof (*item));
+        *item = i;
+        dynarr_push(dynarr, item);
     }
-
-    DynArr *dynarr = malloc(sizeof (*dynarr));
-    if (dynarr == NULL) {
-        return NULL; 
-    }
-
-    size_t bytes = length * sizeof (void *);
-
-    dynarr->size = dynarr->cap = length;
-    dynarr->items = malloc(bytes);
-
-    memcpy(dynarr->items, array, bytes); 
 
     return dynarr;
-}
-
-DynArr *dynarr_cpy(DynArr *source) {
-    if (source == NULL || source->items == NULL) {
-        return NULL;
-    }
-
-    DynArr *copy = malloc(sizeof (*dynarr));
-    if (copy == NULL) {
-        return NULL;
-    }
-
-    copy->size = source->size;
-    copy->cap = source->cap;
-
-    size_t bytes = source->cap * sizeof (void *);
-    
-    // bye bye UB
-    copy->items = malloc(bytes);
-    if (copy->items == NULL) {
-        return NULL; 
-    }
-
-    memcpy(copy->items, source->items, bytes);
-
-    return copy;
 }
 
 void dynarr_push(DynArr *self, void *item) {
@@ -97,8 +71,8 @@ void dynarr_push(DynArr *self, void *item) {
         size_t newcap = self->cap * 2;
 
         if (!dynarr_alloc(self, newcap)) {
-            // handle error (*!)!*(!)!(!)(!)!()9
-            return;
+           // handle error (*!)!*(!)!(!)(!)!()8
+           return;
         }
 
         self->cap = newcap;
@@ -112,7 +86,7 @@ void dynarr_remove(DynArr *self, void *item) {
         return;
     }
     
-    int index = dynarr_find(item);
+    int index = dynarr_indexof(self, item);
     if (index == -1) {
         return; 
     }
@@ -144,7 +118,7 @@ bool dynarr_alloc(DynArr *self, size_t bytes) {
     
     self->cap = bytes; 
 
-    self->items = realloc(self->items, bytes);
+    self->items = realloc(self->items, bytes * sizeof (void **));
     if (self->items == NULL) {
         return false;
     }
@@ -152,10 +126,85 @@ bool dynarr_alloc(DynArr *self, size_t bytes) {
     return true; 
 }
 
-static void dynarr_leftshift(DynArr *self, int index) {
-    for (int i = index; i < self->size - 1; i++) {
-        self->items[i] = self->items[i + 1]; 
+void *dynarr_get(DynArr *self, int index) {
+    if (index < 0 || index > self->size || self == NULL) {
+        return NULL;
     }
 
-    self->size--;
+    return self->items[index];
+}
+
+bool dynarr_exists(DynArr *self, void *item) {
+    if (item == NULL || self == NULL) {
+        return false;
+    }
+
+    for (int i = 0; i <= self->size - 1; i++) {
+        if (self->items[i] == item) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+void *dynarr_peek(DynArr *self) {
+    if (self == NULL) {
+        return NULL;
+    }
+
+    return self->items[self->size - 1];
+}
+
+int dynarr_indexof(DynArr *self, void *item) {
+    if (self == NULL || item == NULL) {
+        return -1;
+    }
+
+    for (int i = 0; i <= self->size - 1; i++) {
+        if (self->items[i] == item) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+// assuming self contains items of identical types.  if types are mixed, users 
+// will have to define their own print functions. 
+void dynarr_print(DynArr *self, void (*printer)(void *)) {
+    if (self == NULL || self->size <= 0) {
+        // might replace it with an error from error.h
+        printf("[]\n");
+        return;
+    }
+    
+    printf("[");
+    for (int i = 0; i <= self->size - 1; i++) {
+        printer(self->items[i]);
+        printf(i == self->size - 1 ? "]\n" : ", ");
+    }
+}
+
+static void dynarr_zeroedout(DynArr *self) {
+    if (self == NULL) {
+        return;
+    }
+
+    self->cap = self->size = 0;
+    free(self->items);
+    free(self);
+}
+
+// assuming every item's type in self->item is the same
+void dynarr_free(DynArr *self, void (*deallocator)(void *)) {
+    if (self == NULL) {
+        return;
+    }
+
+    for (int i = 0; i <= self->size - 1; i++) {
+        deallocator(self->items[i]);
+    }
+
+    dynarr_zeroedout(self);
 }
