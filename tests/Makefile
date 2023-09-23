@@ -4,4 +4,4 @@ CC = gcc
 CFLAGS = -o test -I.. -Wall -g
 
 compile:
-	$(CC) $(CFLAGS) test.c
+	$(CC) $(CFLAGS) test.c ../memory/memory.c

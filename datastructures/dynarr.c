@@ -81,6 +81,16 @@ void dynarr_push(DynArr *self, void *item) {
     self->items[self->size++] = item;
 }
 
+// using dynarr_set could potentially mislead future dynarr_push calls.
+void dynarr_set(DynArr *self, void *item, int index) {
+    if (index < 0 || index >= self->cap || item == NULL || self == NULL) {
+        return;
+    }
+
+    self->items[index] = item;
+    self->itemcount++;
+}
+
 void dynarr_remove(DynArr *self, void *item) {
     if (self == NULL) {
         return;

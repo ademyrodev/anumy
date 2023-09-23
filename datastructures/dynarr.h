@@ -5,32 +5,36 @@ typedef struct {
     size_t size;
     size_t cap;
 
+    // for dynarr_insert
+    size_t itemcount;
     void **items;
 } DynArr;
 
-DynArr *dynarr_new(); 
+extern DynArr *dynarr_new(); 
 
-DynArr *dynarr_withcap(size_t);
+extern DynArr *dynarr_withcap(size_t);
 
-DynArr *dynarr_fromrange(int, int);
+extern DynArr *dynarr_fromrange(int, int);
 
-void dynarr_push(DynArr *, void *);
+extern void dynarr_push(DynArr *, void *);
 
-void dynarr_remove(DynArr *, void *);
+extern void dynarr_edit(DynArr *, void *, int);
 
-void dynarr_removeat(DynArr *, int);
+extern void dynarr_remove(DynArr *, void *);
 
-void *dynarr_get(DynArr *, int);
+extern void dynarr_removeat(DynArr *, int);
 
-void *dynarr_peek(DynArr *);
+extern void *dynarr_get(DynArr *, int);
 
-int dynarr_indexof(DynArr *, void *);
+extern void *dynarr_peek(DynArr *);
 
-bool dynarr_exists(DynArr *, void *);
+extern int dynarr_indexof(DynArr *, void *);
 
-bool dynarr_alloc(DynArr *, size_t);
+extern bool dynarr_exists(DynArr *, void *);
 
-void dynarr_print(DynArr *, void (*printer)(void *));
+extern bool dynarr_alloc(DynArr *, size_t);
 
-void dynarr_free(DynArr *, void (*deallocator)(void *));
+extern void dynarr_print(DynArr *, void (*printer)(void *));
+
+extern void dynarr_free(DynArr *, void (*deallocator)(void *));
 
