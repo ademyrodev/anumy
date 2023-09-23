@@ -2,8 +2,12 @@
 #include "datastructures/dynarr.h"
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define MAXLOADFACTOR 0.75
+
+#define FNVOFFSETBASIS 2166136261u
+#define FNVPRIME 16777619
 
 static Memory *memorytable = NULL;
 
@@ -17,12 +21,16 @@ static void initmemorytable() {
 }
 
 static size_t hash(void *ptr) {
-    // using bit-masking--memorytable->cap is guaranteed to always be a power 
-    // of two, allowing us to replace ptr % memory->cap with bit masking.
-    uintptr_t address = (uintptr_t) ptr;
-    size_t mask = memorytable->cap - 1; 
+    // hashing addresses with FNV-1a
+    uint32_t hash = FNVOFFSETBASIS;
+    uint8_t *data = (uint8_t *) &ptr;
+    
+    for (int i = 0; i < sizeof (ptr); i++) {
+        hash ^= data[i];
+        hash ^= FNVPRIME;
+    }
 
-    return address & mask;
+    return (size_t) hash;
 }
 
 static void resize() {
@@ -37,17 +45,36 @@ static void resize() {
     memorytable->cap = newcap;
 }
 
+static size_t find(void *ptr) {
+    size_t hashvalue = hash(ptr);
+
+    size_t mask = memorytable->cap - 1;
+    size_t bucket = (size_t) hashvalue & mask;
+
+    while (1) {
+        // printf("bucket %zu\n", bucket);
+        void *entry = memorytable->ptrs[bucket];
+
+        if (entry == ptr || entry == NULL) {
+            return bucket;
+        }
+
+        bucket = (bucket + 1) & mask;
+    }
+}
+
 static void insert(void *ptr) {
-    if (memorytable->count >= memorytable->cap * MAXLOADFACTOR) {
+    if (memorytable->count + 1 > memorytable->cap * MAXLOADFACTOR) {
         resize();
     }
 
-    size_t bucket = hash(ptr);
+    size_t bucket = find(ptr);
     memorytable->ptrs[bucket] = ptr;
+    memorytable->count++;
 }
 
 static void delete(void *ptr) {
-    size_t bucket = hash(ptr);
+    size_t bucket = find(ptr);
     memorytable->ptrs[bucket] = NULL;
 }
 
@@ -73,6 +100,7 @@ void *memrealloc(void *ptr, size_t newsize) {
         // implemented
         return NULL;
     }
+
     void *newptr = realloc(ptr, newsize);
     if (newptr == NULL) {
         // TODO; replace with a smarter error handling approach once error.h is 
@@ -123,4 +151,13 @@ void memcleanup() {
     memorytable->count = memorytable->cap = 0;
     free(memorytable->ptrs);
     free(memorytable);
+}
+
+void memdump() {
+    for (int i = 0; i < memorytable->cap; i++) {
+        void *ptr = memorytable->ptrs[i];        
+        if (ptr != NULL) {
+            printf("block %p, size %zu\n", ptr, sizeof (ptr));
+        }
+    }    
 }
