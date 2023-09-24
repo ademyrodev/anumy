@@ -1,7 +1,7 @@
 #include "dynarr.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdbool.h>
 
 static void dynarr_leftshift(DynArr *self, int index) {
@@ -212,7 +212,7 @@ void dynarr_free(DynArr *self, void (*deallocator)(void *)) {
         return;
     }
 
-    for (int i = 0; i <= self->size - 1; i++) {
+    for (int i = 0; i < self->size; i++) {
         deallocator(self->items[i]);
     }
 
